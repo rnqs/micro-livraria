@@ -52,8 +52,34 @@ function calculateShipping(id, cep) {
         });
 }
 
-document.addEventListener('DOMContentLoaded', function () {
+function searchProductById(id) {
     const books = document.querySelector('.books');
+    books.innerHTML = ''; // Limpa a lista atual
+
+    fetch('http://localhost:3000/product/' + id)
+        .then((data) => {
+            if (data.ok) {
+                return data.json();
+            }
+            throw data.statusText;
+        })
+        .then((book) => {
+            if (book) {
+                books.appendChild(newBook(book));
+                setupEventListeners();
+            } else {
+                swal('Erro', 'Produto não encontrado', 'error');
+            }
+        })
+        .catch((err) => {
+            swal('Erro', 'Erro ao buscar o produto', 'error');
+            console.error(err);
+        });
+}
+
+function loadAllProducts() {
+    const books = document.querySelector('.books');
+    books.innerHTML = ''; // Limpa a lista atual
 
     fetch('http://localhost:3000/products')
         .then((data) => {
@@ -67,24 +93,68 @@ document.addEventListener('DOMContentLoaded', function () {
                 data.forEach((book) => {
                     books.appendChild(newBook(book));
                 });
-
-                document.querySelectorAll('.button-shipping').forEach((btn) => {
-                    btn.addEventListener('click', (e) => {
-                        const id = e.target.getAttribute('data-id');
-                        const cep = document.querySelector(`.book[data-id="${id}"] input`).value;
-                        calculateShipping(id, cep);
-                    });
-                });
-
-                document.querySelectorAll('.button-buy').forEach((btn) => {
-                    btn.addEventListener('click', (e) => {
-                        swal('Compra de livro', 'Sua compra foi realizada com sucesso', 'success');
-                    });
-                });
+                setupEventListeners();
             }
         })
         .catch((err) => {
             swal('Erro', 'Erro ao listar os produtos', 'error');
             console.error(err);
         });
+}
+
+function setupEventListeners() {
+    document.querySelectorAll('.button-shipping').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+            const id = e.target.getAttribute('data-id');
+            const cep = document.querySelector(`.book[data-id="${id}"] input`).value;
+            calculateShipping(id, cep);
+        });
+    });
+
+    document.querySelectorAll('.button-buy').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+            const id = e.target.closest('.book').getAttribute('data-id');
+            const cep = document.querySelector(`.book[data-id="${id}"] input`).value;
+
+            if (!cep) {
+                swal('Erro', 'Por favor, digite um CEP válido', 'error');
+                return;
+            }
+
+            fetch('http://localhost:3000/shipping/' + cep)
+                .then((data) => {
+                    if (data.ok) {
+                        return data.json();
+                    }
+                    throw data.statusText;
+                })
+                .then((shippingData) => {
+                    swal(
+                        'Compra realizada com sucesso!',
+                        `Valor do frete: R$${shippingData.value.toFixed(2)}\n` +
+                            'Sua compra foi processada com sucesso!',
+                        'success'
+                    );
+                })
+                .catch((err) => {
+                    swal('Erro', 'Erro ao processar a compra', 'error');
+                    console.error(err);
+                });
+        });
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    // Carrega todos os produtos inicialmente
+    loadAllProducts();
+
+    // Adiciona evento de busca por ID
+    document.getElementById('search-button').addEventListener('click', () => {
+        const id = document.getElementById('search-id').value;
+        if (!id) {
+            swal('Erro', 'Por favor, digite um ID válido', 'error');
+            return;
+        }
+        searchProductById(id);
+    });
 });
